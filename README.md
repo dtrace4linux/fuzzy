@@ -3,11 +3,7 @@ Fuzzy filename matching
 <pre>
 
 fuzzy.pl -- fuzzy filename matching
-Usage:
-
-   -dir <dir>       Scan dir for files as targets to match.
-                    Default is $PATH.
-   -f <filename>    Input source of words.
+Usage: fuzzy.pl [switches] <search-term>
 
   This is a simple tool to do fuzzy filename matching. It was designed
   as a learning experience/POC, to do fuzzy matching, similar to what
