@@ -30,13 +30,12 @@ my %noext = (
 	bmp => 1,
 	);
 
-my $spec = -1;
-
 sub main
 {
 	Getopt::Long::Configure('require_order');
 	Getopt::Long::Configure('no_ignore_case');
 	usage() unless GetOptions(\%opts,
+		'debug',
 		'dir=s',
 		'f=s',
 		'files',
@@ -90,7 +89,6 @@ sub main
 	$dpat =~ s/\*$//;
 #	print "dpat=$dpat\n";
 
-	my $s;
 	foreach my $f (sort(keys(%f))) {
 		my $b = basename($f);
 		my $r;
@@ -110,7 +108,7 @@ sub main
 		} elsif ($r = re_match($b, $pat, ic => 1)) {
 			$h{$f} = 5;
 		} elsif ($r = re_match($b, $dpat, ic => 1)) {
-			$h{$f} = $spec = 4;
+			$h{$f} = 4;
 		}
 #print "r=$r\n";
 		$m{$f} = $r;
@@ -155,6 +153,11 @@ sub display
 		}
 	}
 	print "\n";
+	if ($opts{debug}) {
+		print "  b=$b\n";
+		print "  m=$mask\n";
+	}
+
 }
 
 sub re_match
@@ -164,6 +167,7 @@ sub re_match
 #print "$_\n" foreach keys (%opts);
 
 	my @blst = split(/\./, $b);
+#print "b=$b !", join("!", @blst), "!\n" if $b =~ /valgrind/;
 	my @plst = split(/\./, $pat);
 	my $i;
 	my $j = 0;
@@ -173,7 +177,13 @@ sub re_match
 
 	for ($i = 0; $i < @blst; $i++) {
 		my $b1 = $blst[$i];
-		return $m if $i >= @plst;
+		if ($i >= @plst) {
+			for (; $i < @blst; $i++) {
+				$m .= ".";
+				$m .= "." x length($blst[$i]);
+			}
+			return $m;
+		}
 		my $p1 = $plst[$i];
 
 		my $mat = re_match2($b1, $p1, \%opts);
