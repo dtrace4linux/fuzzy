@@ -267,10 +267,12 @@ int main(int argc, char **argv)
 		if (fitem->f_mask == NULL)
 			continue;
 		display(fitem->f_name, fitem->f_mask, fitem->f_score, pat);
+		chk_free(fitem->f_mask);
 		}
 	chk_free(hep);
 
-	hash_destroy(files, HF_FREE_DATA);
+	hash_destroy(files, HF_FREE_KEY | HF_FREE_DATA);
+	chk_free(dpat);
 
 }
 
@@ -284,7 +286,7 @@ void display(char *f, char *mask, int val, char *pat)
 	char *b = basename(f);
 	printf("%s/", b);
 
-	for (int i = 0; i < strlen(b); i++) {
+	for (int i = 0; i < (int) strlen(b); i++) {
 		int ch = b[i];
 		if (mask[i] == 'X') {
 			printf("\033[36m%c\033[37m", ch);
@@ -328,6 +330,7 @@ re_match(char *b, char *pat, int flags)
 		int mat = re_match2(b1, p1, flags);
 //#print "  cmp $b1 $p1 = $mat\n" if $b =~ /^acc/;
 		if (mat == 0) {
+			dstr_free(&m);
 //printf("re_match(%s, %s, %d) -> fail at %d\n", b, pat, flags, i);
 			return NULL;
 		}
