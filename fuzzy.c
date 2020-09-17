@@ -117,7 +117,14 @@ ignore_ext(char *cp)
 }
 static int
 sort_compare(const void *p1, const void *p2)
-{
+{	hash_element_t *h1 = p1;
+	hash_element_t *h2 = p2;
+
+	file_t *f1 = hash_data(h1);
+	file_t *f2 = hash_data(h2);
+
+	printf("sort %s\n", f1->f_name);
+
 	return 0;
 }
 
@@ -199,7 +206,8 @@ int main(int argc, char **argv)
 				else {
 					file_t *f = chk_zalloc(sizeof *f);
 					f->f_name = cp2;
-					hash_insert(files, f->f_name, (void *) f);
+					if (hash_insert(files, f->f_name, (void *) f) == FALSE)
+						printf("hash insert %s failed\n", f->f_name);
 					}
 				}
 			closedir(dh);
@@ -264,9 +272,9 @@ int main(int argc, char **argv)
 	qsort(hep, hash_size(files), sizeof *hep, sort_compare);
 	for (i = 0; i < hash_size(files); i++) {
 		file_t *fitem = (file_t *) hash_data(hep[i]);
-		if (fitem->f_mask == NULL)
-			continue;
-		display(fitem->f_name, fitem->f_mask, fitem->f_score, pat);
+		if (fitem->f_mask) {
+			display(fitem->f_name, fitem->f_mask, fitem->f_score, pat);
+			}
 		chk_free(fitem->f_mask);
 		}
 	chk_free(hep);

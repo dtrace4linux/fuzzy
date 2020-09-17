@@ -2,12 +2,16 @@
 Fuzzy filename matching
 <pre>
 
-fuzzy.pl -- fuzzy filename matching
+fuzzy.pl -- (Perl) fuzzy filename matching
+fuzzy.py -- (Python) fuzzy filename matching
 Usage: fuzzy.pl [switches] <search-term>
 
   This is a simple tool to do fuzzy filename matching. It was designed
   as a learning experience/POC, to do fuzzy matching, similar to what
   many IDEs provide. "Cost based" ordering gets fiddly and tricky to debug.
+
+  There are three versions of the same tool located in this repo.
+  Perl, Python and plain C.
 
   The initial approach for this was to try various algorithms for
   each item, and then order the results by "best". This code is designed
