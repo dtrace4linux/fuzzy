@@ -286,7 +286,10 @@ def main2():
             results[f] = { "file": f, "score": 4, "mask": ret[0]}
 
     # Now print the results
-    for r in sorted(results, key = results.score):
+    nres = {k: v for k, v in sorted(results.items(), 
+        reverse=True, 
+        key=lambda item: item[1]["score"])}
+    for r in nres:
         display(results[r], pat)
 
 # - - - - - - - - - - - - #
