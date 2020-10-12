@@ -135,7 +135,7 @@ sub display
 	print " mask=$mask -" if $opts{v};
 	my $p = $parray->[1];
 
-	print dirname($p) . "/";
+	print dirname($p) . "/" if $p =~ /\//;
 	my $b = basename($p);
 	if (length($mask) != length($b)) {
 		print "error mask mismatch:\n";
@@ -170,13 +170,12 @@ sub re_match
 #print "b=$b !", join("!", @blst), "!\n" if $b =~ /valgrind/;
 	my @plst = split(/\./, $pat);
 	my $i;
-	my $j = 0;
 #print "$b - $pat - ", join(",", @blst), " ", join(",", @plst), "\n";
 
 	my $m = '';
 
 	for ($i = 0; $i < @blst; $i++) {
-		my $b1 = $blst[$i];
+#print "i=$i plst=", scalar(@plst), "\n";
 		if ($i >= @plst) {
 			for (; $i < @blst; $i++) {
 				$m .= ".";
@@ -184,13 +183,21 @@ sub re_match
 			}
 			return $m;
 		}
-		my $p1 = $plst[$i];
 
-		my $mat = re_match2($b1, $p1, \%opts);
+		my $mat = re_match2($blst[$i], $plst[$i], \%opts);
 #print "  cmp $b1 $p1 = $mat\n" if $b =~ /^acc/;
+#print "i=$i mat=$mat '$blst[$i]' '$plst[$i]'\n";
 		return "" if $mat eq '';
 		$m .= "." if $m;
 		$m .= $mat;
+	}
+
+	###############################################
+	#   For  a  multi-part  match,  if  we didnt  #
+	#   match, then dont match at all.	      #
+	###############################################
+	if ($i < @plst) {
+		return "";
 	}
 #print "-> good\n";
 	return $m;

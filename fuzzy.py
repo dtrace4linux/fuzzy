@@ -47,7 +47,9 @@ def display(res, pat):
         print("  mask='%s'" % mask);
         return
 
-    print("%s/" % os.path.dirname(file), end = "")
+    dir = os.path.dirname(file)
+    if dir:
+        print("%s/" % dir, end = "")
     for i in range(0, len(b)):
         ch = b[i]
         if mask[i] == 'X':
@@ -83,6 +85,9 @@ def fmatch(ret, b, pat, bol = 0, ic = 0):
             m += "."
         #print("mat", mat, m)
         m += mat
+
+    if i + 1 < len(plst):
+        return ""
 
     ret[0] = m
     return m

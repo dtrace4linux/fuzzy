@@ -1,0 +1,10 @@
+test:
+	args=val v
+	result=val
+test:
+	args=val v.
+	result=
+test:
+	args=val v.z
+	result=
+

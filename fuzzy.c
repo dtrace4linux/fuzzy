@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <libgen.h>
 #include <ctype.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -45,9 +46,9 @@ typedef struct file_t {
 /*   Prototypes.						      */
 /**********************************************************************/
 char	*basename(char *);
-char *re_match(char *b, char *pat, int flags);
-int	re_match2(int b, int pat, int flags);
-void display(char *f, char *mask, int val, char *pat);
+char	*re_match(char *b, char *pat, int flags);
+char	*re_match2(char *b, char *pat, int flags);
+void display(char *f, char *mask, int val);
 void usage(int ret);
 
 /**********************************************************************/
@@ -117,15 +118,16 @@ ignore_ext(char *cp)
 }
 static int
 sort_compare(const void *p1, const void *p2)
-{	hash_element_t *h1 = p1;
-	hash_element_t *h2 = p2;
+{	hash_element_t *h1 = (hash_element_t *) *(void **) p1;
+	hash_element_t *h2 = (hash_element_t *) *(void **) p2;
 
 	file_t *f1 = hash_data(h1);
 	file_t *f2 = hash_data(h2);
 
-	printf("sort %s\n", f1->f_name);
 
-	return 0;
+//	printf("sort %s\n", f1->f_name);
+
+	return f2->f_score - f1->f_score;
 }
 
 int main(int argc, char **argv)
@@ -262,7 +264,8 @@ int main(int argc, char **argv)
 		} else if ((r = re_match(b, dpat, FL_IGNORE_CASE)) != NULL) {
 			fitem->f_score = 4;
 		}
-//print "r=$r\n";
+//printf("done %s mask=%s\n", f, r);
+
 //printf("=== %3d %s, %s pat=%s\n", fitem->f_score, f, r, pat);
 		fitem->f_mask = r;
 	}
@@ -272,19 +275,22 @@ int main(int argc, char **argv)
 	qsort(hep, hash_size(files), sizeof *hep, sort_compare);
 	for (i = 0; i < hash_size(files); i++) {
 		file_t *fitem = (file_t *) hash_data(hep[i]);
+//printf("name=%s mask=%p\n", fitem->f_name, fitem->f_mask);
 		if (fitem->f_mask) {
-			display(fitem->f_name, fitem->f_mask, fitem->f_score, pat);
+			display(fitem->f_name, fitem->f_mask, fitem->f_score);
 			}
+		chk_free(fitem->f_name);
 		chk_free(fitem->f_mask);
+		chk_free(fitem);
 		}
 	chk_free(hep);
 
-	hash_destroy(files, HF_FREE_KEY | HF_FREE_DATA);
+	hash_destroy(files, 0);
 	chk_free(dpat);
 
 }
 
-void display(char *f, char *mask, int val, char *pat)
+void display(char *f, char *mask, int val)
 {
 	printf("\033[37m%d - ", val);
 	if (v_flag) {
@@ -292,7 +298,11 @@ void display(char *f, char *mask, int val, char *pat)
 	}
 
 	char *b = basename(f);
-	printf("%s/", b);
+	if (strchr(f, '/')) {
+		char *d = dirname(f);
+		printf("%s/", d);
+		chk_free(d);
+	}
 
 	for (int i = 0; i < (int) strlen(b); i++) {
 		int ch = b[i];
@@ -306,8 +316,8 @@ void display(char *f, char *mask, int val, char *pat)
 
 	if (strlen(mask) != strlen(b)) {
 		printf("error mask mismatch:\n");
-		printf("  b=%s\n", b);
-		printf("  m=%s\n", mask);
+		printf("  b='%s'\n", b);
+		printf("  m='%s'\n", mask);
 		return;
 	}
 }
@@ -317,8 +327,21 @@ re_match(char *b, char *pat, int flags)
 {
 	int	i;
 	int	j = 0;
-	int	blen = strlen(b);
-	int	plen = strlen(pat);
+	char	bbuf[BUFSIZ];
+	char	pbuf[BUFSIZ];
+	char	*blst[10];
+	char	*plst[10];
+	int	blen, plen;
+	char	*cp;
+
+	strncpy(bbuf, b, sizeof bbuf);
+	strncpy(pbuf, pat, sizeof pbuf);
+	for (blen = 0, cp = strtok(bbuf, "."); cp && blen < 10; cp = strtok(NULL, ".")) {
+		blst[blen++] = cp;
+		}
+	for (plen = 0, cp = strtok(pbuf, "."); cp && plen < 10; cp = strtok(NULL, ".")) {
+		plst[plen++] = cp;
+		}
 
 //printf("re_match: b=%s pat=%s\n", b, pat);
 
@@ -327,53 +350,103 @@ re_match(char *b, char *pat, int flags)
 
 	for (i = 0; i < blen; i++) {
 		if (i >= plen) {
-			for ( ; i < blen; i++)
+			for ( ; i < blen; i++) {
 				dstr_add_char(&m, '.');
+				for (j = 0; j < (int) strlen(blst[i]); j++)
+					dstr_add_char(&m, '.');
+			}
 			break;
 		}
 
-		int b1 = b[i];
-		int p1 = pat[i];
-
-		int mat = re_match2(b1, p1, flags);
+		char *mat = re_match2(blst[i], plst[i], flags);
 //#print "  cmp $b1 $p1 = $mat\n" if $b =~ /^acc/;
-		if (mat == 0) {
+		if (mat == NULL) {
 			dstr_free(&m);
 //printf("re_match(%s, %s, %d) -> fail at %d\n", b, pat, flags, i);
 			return NULL;
 		}
-//		if (DSTR_SIZE(&m))
-//			dstr_add_char(&m, '.');
-		dstr_add_char(&m, mat);
+		if (DSTR_SIZE(&m))
+			dstr_add_char(&m, '.');
+		dstr_add_mem(&m, mat, strlen(mat));
+		chk_free(mat);
 	}
 	dstr_add_char(&m, '\0');
-printf("re_match(%s, %s) -> \"%s\"\n", b, pat, DSTR_STRING(&m));
+
+	if (i < plen) {
+		dstr_free(&m);
+		return NULL;
+	}
+//printf("re_match(%s, %s) -> \"%s\" len=%d vs %d\n", b, pat, DSTR_STRING(&m), (int) strlen(b), DSTR_SIZE(&m)-1);
+	if ((int) strlen(b) != DSTR_SIZE(&m) -1) {
+		printf("Size mismatch - mask does not match!\n");
+		exit(1);
+	}
 //print "-> good\n";
 	return DSTR_STRING(&m);
 }
-int
-re_match2(int b, int pat, int flags)
+char *
+re_match2(char *b, char *pat, int flags)
 {	int	ch;
+	dstr_t dstr;
+	int	i = 0;
+	int	j = 0;
 
+	dstr_init(&dstr, 64);
+
+	while (i < (int) strlen(b) && j < (int) strlen(pat)) {
 //#print "match2: $b $pat\n";
-	int b1 = b;
-	int p1 = pat;
+		int b1 = b[i];
+		int p1 = pat[j];
 
-	if (flags & FL_IGNORE_CASE) {
-		b1 = tolower(b1);
-		p1 = tolower(p1);
+		if (flags & FL_IGNORE_CASE) {
+			b1 = tolower(b1);
+			p1 = tolower(p1);
+		}
+
+		if (b1 == p1) {
+			dstr_add_char(&dstr, 'X');
+			i++, j++;
+			continue;
+		}
+
+		if (p1 == '*') {
+			int found = 0;
+			for (i++; i < (int) strlen(b); i++) {
+				b1 = flags & FL_IGNORE_CASE ? tolower(b[i]) : b[i];
+				if (b1 == p1) {
+					i++;
+					found = 1;
+					break;
+				}
+				dstr_add_char(&dstr, ' ');
+			}
+			if (!found)
+				break;
+			j++;
+			continue;
+		}
+
+		i++;
+		dstr_add_char(&dstr, '_');
 	}
-	if (b1 == p1) {
-		ch = 'X';
-	} else if (p1 == '*') {
-		ch = ' ';
-	} else {
-		return 0;
+
+	if (j < (int) strlen(pat)) {
+		dstr_free(&dstr);
+		return NULL;
 	}
-	if (flags & FL_BOL && ch != 'X') {
-		return 0;
-	}
-	return ch;
+
+	while (i++ < (int) strlen(b))
+		dstr_add_char(&dstr, '_');
+	dstr_add_char(&dstr, '\0');
+
+	char *str = DSTR_STRING(&dstr);
+
+	if (flags & FL_BOL && str[0] != 'X') {
+		dstr_free(&dstr);
+		return NULL;
+		}
+
+	return str;
 }
 //######################################################################
 //   Print out command line usage.				      #
