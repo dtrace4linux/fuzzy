@@ -1,10 +1,16 @@
 test:
-	args=val v
+	args=-s val v
 	result=val
 test:
-	args=val v.
+	args=-s val v.
 	result=
 test:
-	args=val v.z
+	args=-s val v.z
 	result=
+test:
+	args=-s val vz
+	result=
+test:
+	args=-s val vl
+	lines=1
 
